@@ -1,9 +1,10 @@
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 
 from app.auth.password import verify_password, get_password_hash
 from app.exceptions.UserNotFoundException import UseNotFoundException
 from app.models.User import User
 from app.models.UserPassword import UserPassword
+from app.requests.users.ChangePassword import ChangePasswordRequest
 from app.requests.users.Login import LoginRequest
 from app.requests.users.Register import RegisterRequest
 
@@ -11,6 +12,17 @@ from app.requests.users.Register import RegisterRequest
 class UserService:
     def __init__(self, session: Session):
         self.session = session
+
+    async def get_by_username(self, username: str):
+        query = (
+            select(User.user_id, User.username, User.email, UserPassword.value.label("password"))
+            .join(UserPassword)
+            .where(User.username == username)
+            .limit(1)
+        )
+
+        result = await self.session.execute(query)
+        return result.first()
 
     async def register_user(self, user: RegisterRequest):
         new_user = User(
@@ -26,15 +38,7 @@ class UserService:
         await self.session.commit()
 
     async def login(self, data: LoginRequest):
-        query = (
-            select(User.user_id, User.username, User.email, UserPassword.value.label("password"))
-            .join(UserPassword)
-            .where(User.username == data.username)
-            .limit(1)
-        )
-
-        query_result = await self.session.execute(query)
-        user: list[User] = query_result.first()
+        user = await self.get_by_username(data.username)
 
         if not user:
             raise UseNotFoundException("Username or password is invalid")
@@ -44,5 +48,19 @@ class UserService:
 
         return user
 
-    def change_password(self):
-        pass
+    async def change_password(self, user: User, request_data: ChangePasswordRequest):
+        if not verify_password(request_data.old_password, user.password):
+            raise UseNotFoundException("Password is invalid")
+
+        query = (
+            select(UserPassword)
+            .where(UserPassword.user_id == user.user_id)
+            .limit(1)
+        )
+
+        data = await self.session.execute(query)
+        user_password = data.scalars().first()
+
+        user_password.value = get_password_hash(request_data.new_password)
+
+        await self.session.commit()

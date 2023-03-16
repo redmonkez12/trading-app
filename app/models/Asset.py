@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 
-from app.models.Instrument import Instrument
+from app.models.Market import Instrument
 import sqlalchemy as sa
 
 

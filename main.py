@@ -3,7 +3,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
-from app.controllers.Healthcheck import healthcheck_router
+from app.controllers.others.Healthcheck import healthcheck_router
+from app.controllers.markets.MarketController import market_router
 from app.controllers.users.UsersController import user_router
 from database import init_db
 
@@ -26,6 +27,7 @@ async def main():
 
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(healthcheck_router, prefix="/api/v1")
+app.include_router(market_router, prefix="/api/v1")
 
 
 @app.exception_handler(RequestValidationError)
